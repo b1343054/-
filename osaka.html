@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>大阪五天四夜 App (全功能版含明細)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .animate-slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-gray-200">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    function OsakaTravelApp() {
+      // --- 主頁面狀態 ---
+      const [activeDay, setActiveDay] = useState(1);
+      const [showBottomSheet, setShowBottomSheet] = useState(false);
+      
+      // --- 彈窗分頁狀態 ('expense', 'shopping', 'exchange') ---
+      const [activeTab, setActiveTab] = useState('expense');
+
+      // --- 記帳狀態 ---
+      const [expenses, setExpenses] = useState([]);
+      const [itemName, setItemName] = useState("");
+      const [amount, setAmount] = useState("");
+      const [payMethod, setPayMethod] = useState("cash");
+
+      // --- 購物清單狀態 ---
+      const [shoppingList, setShoppingList] = useState([
+        { id: 1, text: "大國藥妝 (合利他命、EVE)", done: false },
+        { id: 2, text: "Bic Camera (吹風機)", done: false },
+        { id: 3, text: "關西機場 (薯條三兄弟、白色戀人)", done: false }
+      ]);
+      const [newItem, setNewItem] = useState("");
+
+      // --- 匯率狀態 ---
+      const [twdInput, setTwdInput] = useState("");
+      const exchangeRate = 4.76; 
+
+      // --- 行程資料庫 ---
+      const itineraryData = {
+        1: [
+          { time: "14:30", title: "抵達關西機場", desc: "準備搭乘南海電鐵特急 Rapi:t 前往市區。", type: "train" },
+          { time: "16:00", title: "🏨 入住：Cross Hotel Osaka", desc: "位於難波/心齋橋交界，交通極度方便。", note: "放好行李後出門。", type: "hotel" },
+          { time: "18:00", title: "道頓堀商圈散步", desc: "與固力果招牌合照，感受大阪夜生活。", type: "camera" },
+          { time: "19:30", title: "晚餐：一蘭拉麵 / 達摩炸串", desc: "享受道地大阪美食。", type: "food" }
+        ],
+        2: [
+          { time: "09:00", title: "黑門市場吃早餐", desc: "品嚐海鮮、和牛串燒。", note: "記得帶現金，很多攤位不收卡。", type: "food" },
+          { time: "11:30", title: "大阪城公園 & 天守閣", desc: "了解豐臣秀吉的歷史。", type: "camera" },
+          { time: "20:00", title: "🏨 返回飯店：Cross Hotel", desc: "回飯店休息。", type: "hotel" }
+        ],
+        3: [
+          { time: "09:00", title: "日本環球影城 (USJ)", desc: "超級任天堂世界、哈利波特全日遊！", note: "提前將門票掃入 App。", type: "ticket" },
+          { time: "21:30", title: "🏨 返回飯店：Cross Hotel", desc: "帶著戰利品回飯店。", type: "hotel" }
+        ],
+        4: [
+          { time: "10:00", title: "🏨 換飯店：天王寺萬豪酒店", desc: "辦理退房，前往阿倍野區入住高空飯店。", type: "hotel" },
+          { time: "11:00", title: "心齋橋 Shopping", desc: "買大國藥妝、UNIQLO。", type: "shopping" },
+          { time: "18:00", title: "阿倍野 Harukas 300", desc: "日本第一高樓觀景台看夜景。", type: "camera" }
+        ],
+        5: [
+          { time: "09:30", title: "空庭溫泉", desc: "關西最大溫泉主題園區。", type: "relax" },
+          { time: "16:30", title: "抵達關西機場", desc: "準備搭機回台灣。", type: "train" }
+        ]
+      };
+
+      // --- 邏輯操作 ---
+      const totalExpense = expenses.reduce((sum, item) => sum + item.cost, 0);
+
+      const handleAddExpense = () => {
+        if (!itemName || !amount) return alert("請輸入品項與金額");
+        setExpenses([{ id: Date.now(), name: itemName, cost: parseFloat(amount), method: payMethod }, ...expenses]);
+        setItemName(""); setAmount("");
+      };
+
+      const toggleShoppingItem = (id) => {
+        setShoppingList(shoppingList.map(item => item.id === id ? { ...item, done: !item.done } : item));
+      };
+
+      const handleAddShopping = () => {
+        if (!newItem) return;
+        setShoppingList([...shoppingList, { id: Date.now(), text: newItem, done: false }]);
+        setNewItem("");
+      };
+
+      return (
+        <div className="flex justify-center items-center min-h-screen font-sans py-10">
+          <div className="w-[375px] h-[812px] bg-slate-50 rounded-[3rem] shadow-2xl border-[10px] border-black overflow-hidden relative flex flex-col">
+            
+            {/* Header */}
+            <div className="h-[250px] relative shrink-0">
+              <img src="https://images.unsplash.com/photo-1590559899731-a382839cecd5?q=80&w=800&auto=format&fit=crop" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/80"></div>
+              <div className="absolute bottom-6 left-6 text-white">
+                <span className="bg-white/30 backdrop-blur-md px-3 py-1 rounded-full text-xs font-medium">日本/大阪</span>
+                <h1 className="text-5xl font-bold tracking-wider drop-shadow-lg mt-2">大阪</h1>
+              </div>
+            </div>
+
+            {/* Days */}
+            <div className="flex gap-3 px-5 py-4 overflow-x-auto no-scrollbar bg-white shrink-0 border-b border-gray-100 z-10">
+              {[1, 2, 3, 4, 5].map(day => (
+                <button key={day} onClick={() => setActiveDay(day)} className={`min-w-[65px] h-[75px] rounded-2xl flex flex-col items-center justify-center border-2 transition-all ${activeDay === day ? 'bg-slate-800 text-white border-slate-800 transform scale-105' : 'bg-white text-slate-400 border-gray-100'}`}>
+                  <span className="text-[10px] font-bold mb-1">DAY</span>
+                  <span className={`text-2xl font-black ${activeDay === day ? 'text-white' : 'text-slate-700'}`}>{day}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Itinerary List */}
+            <div className="flex-1 overflow-y-auto no-scrollbar pb-24 px-5 bg-slate-50 relative">
+              <h3 className="text-[11px] font-bold text-slate-400 uppercase mb-5 mt-6 ml-2">Itinerary</h3>
+
+              <div className="relative ml-2">
+                <div className="absolute left-[54px] top-4 bottom-0 w-[2px] bg-gray-200 z-0"></div>
+
+                {(itineraryData[activeDay] || []).map((item, index) => (
+                  <div key={index} className="flex gap-4 relative z-10 mb-6">
+                    <div className="w-[55px] shrink-0 relative flex flex-col items-end pt-1 pr-1">
+                      <span className="text-slate-500 font-bold text-sm font-mono">{item.time}</span>
+                      <div className="w-3 h-3 bg-blue-500 rounded-full absolute -right-[6px] top-2 border-2 border-slate-50 z-20"></div>
+                    </div>
+                    
+                    <div className="flex-1 bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
+                      <div className="flex justify-between items-start mb-2">
+                        <h4 className="font-bold text-slate-800 text-lg">{item.title}</h4>
+                        <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-sm ml-2">
+                          {item.type === 'hotel' ? '🏨' : item.type === 'food' ? '🍜' : item.type === 'shopping' ? '🛍️' : '📸'}
+                        </div>
+                      </div>
+                      <p className="text-sm text-slate-500 mb-3">{item.desc}</p>
+                      {item.note && (
+                        <div className="bg-yellow-50 rounded-xl p-3 flex gap-2">
+                          <span className="text-yellow-600 text-sm">ℹ️</span>
+                          <p className="text-xs text-yellow-800">{item.note}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* FAB */}
+            <button onClick={() => setShowBottomSheet(true)} className="absolute bottom-6 right-6 w-[60px] h-[60px] bg-yellow-400 rounded-full shadow-xl flex items-center justify-center text-3xl font-bold hover:scale-105 z-20">
+              ＋
+            </button>
+
+            {/* Bottom Sheet */}
+            {showBottomSheet && (
+              <div className="absolute inset-0 z-50 flex flex-col justify-end overflow-hidden">
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" onClick={() => setShowBottomSheet(false)}></div>
+                
+                <div className="relative bg-white w-full rounded-t-[2.5rem] shadow-2xl flex flex-col animate-slide-up h-[85%] pb-6">
+                  <div className="flex justify-center pt-5 pb-3"><div className="w-12 h-1.5 bg-gray-200 rounded-full"></div></div>
+                  
+                  {/* 分頁按鈕 */}
+                  <div className="flex justify-around px-6 py-2 border-b border-gray-100">
+                    <button onClick={() => setActiveTab('expense')} className={`px-5 py-2 rounded-full text-sm font-bold transition-colors ${activeTab === 'expense' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400'}`}>💼 記帳</button>
+                    <button onClick={() => setActiveTab('shopping')} className={`px-5 py-2 rounded-full text-sm font-bold transition-colors ${activeTab === 'shopping' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400'}`}>🛍️ 購物</button>
+                    <button onClick={() => setActiveTab('exchange')} className={`px-5 py-2 rounded-full text-sm font-bold transition-colors ${activeTab === 'exchange' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400'}`}>💱 匯率</button>
+                  </div>
+
+                  <div className="px-6 py-6 flex flex-col flex-1 overflow-y-auto no-scrollbar">
+                    
+                    {/* --- 分頁 1: 記帳 (已修復明細顯示) --- */}
+                    {activeTab === 'expense' && (
+                      <div className="flex flex-col items-center w-full">
+                        <p className="text-[10px] font-bold text-slate-400 mb-1">Today's Total (JPY)</p>
+                        <h2 className="text-4xl font-black text-slate-800 mb-6 font-mono">¥ {totalExpense.toLocaleString()}</h2>
+                        
+                        {/* 輸入區 */}
+                        <div className="w-full space-y-4">
+                          <input type="text" placeholder="品項 (如: 蘋果糖)" value={itemName} onChange={e => setItemName(e.target.value)} className="w-full bg-slate-50 border-2 border-transparent rounded-2xl px-5 py-4 font-bold outline-none focus:bg-white focus:border-yellow-400" />
+                          <div className="flex gap-3">
+                            <input type="number" placeholder="金額" value={amount} onChange={e => setAmount(e.target.value)} className="flex-1 bg-slate-50 border-2 border-transparent rounded-2xl px-5 py-4 font-bold font-mono outline-none focus:bg-white focus:border-yellow-400" />
+                            <div className="bg-slate-50 rounded-2xl px-4 py-4 font-black flex items-center">JPY</div>
+                          </div>
+                          <div className="flex gap-3 pt-2">
+                            <button onClick={() => setPayMethod('cash')} className={`flex-1 py-3.5 rounded-2xl font-bold border-2 ${payMethod === 'cash' ? 'bg-green-50 text-green-600 border-green-200' : 'bg-white text-slate-400 border-gray-100'}`}>💵 現金</button>
+                            <button onClick={() => setPayMethod('card')} className={`flex-1 py-3.5 rounded-2xl font-bold border-2 ${payMethod === 'card' ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-white text-slate-400 border-gray-100'}`}>💳 信用卡</button>
+                          </div>
+                          <button onClick={handleAddExpense} className="w-full bg-yellow-400 font-black text-lg py-4 rounded-2xl shadow-lg mt-2 mb-4">新增一筆</button>
+                        </div>
+
+                        {/* --- 這裡就是你要求的消費明細區塊 --- */}
+                        <div className="w-full border-t border-gray-100 pt-6 mt-2">
+                          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">消費明細列表</h4>
+                          <div className="space-y-3 pb-10">
+                            {expenses.length === 0 ? (
+                              <p className="text-sm text-center text-slate-300 py-4">目前尚無紀錄</p>
+                            ) : (
+                              expenses.map((exp) => (
+                                <div key={exp.id} className="bg-white border border-gray-100 p-4 rounded-2xl flex justify-between items-center shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)]">
+                                  <div className="flex items-center gap-3">
+                                    <div className="text-2xl">{exp.method === 'cash' ? '💵' : '💳'}</div>
+                                    <div className="font-bold text-slate-700">{exp.name}</div>
+                                  </div>
+                                  <div className="font-mono font-black text-slate-800 text-lg">¥ {exp.cost.toLocaleString()}</div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+
+                      </div>
+                    )}
+
+                    {/* --- 分頁 2: 購物清單 --- */}
+                    {activeTab === 'shopping' && (
+                      <div className="w-full">
+                        <h2 className="text-xl font-black text-slate-800 mb-4">🛒 必買清單</h2>
+                        <div className="flex gap-2 mb-6">
+                          <input type="text" placeholder="新增想買的物品..." value={newItem} onChange={e => setNewItem(e.target.value)} className="flex-1 bg-slate-50 border-2 border-transparent rounded-xl px-4 py-3 font-bold outline-none focus:bg-white focus:border-yellow-400" />
+                          <button onClick={handleAddShopping} className="bg-slate-800 text-white px-5 rounded-xl font-bold">+</button>
+                        </div>
+                        <div className="space-y-3">
+                          {shoppingList.map(item => (
+                            <div key={item.id} onClick={() => toggleShoppingItem(item.id)} className={`p-4 rounded-xl border flex items-center gap-3 cursor-pointer transition-colors ${item.done ? 'bg-slate-50 border-gray-200 opacity-60' : 'bg-white border-gray-200 shadow-sm'}`}>
+                              <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${item.done ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300'}`}>
+                                {item.done && "✓"}
+                              </div>
+                              <span className={`font-bold ${item.done ? 'line-through text-slate-400' : 'text-slate-700'}`}>{item.text}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* --- 分頁 3: 匯率換算 --- */}
+                    {activeTab === 'exchange' && (
+                      <div className="w-full flex flex-col items-center pt-4">
+                        <h2 className="text-xl font-black text-slate-800 mb-8">💱 即時匯率換算</h2>
+                        <div className="w-full bg-slate-50 p-6 rounded-3xl border border-gray-100 relative shadow-sm">
+                          <div className="flex flex-col gap-2 mb-6">
+                            <label className="text-xs font-bold text-slate-400 uppercase">台幣 (TWD)</label>
+                            <input type="number" placeholder="輸入台幣金額" value={twdInput} onChange={e => setTwdInput(e.target.value)} className="bg-transparent text-3xl font-mono font-black text-slate-800 border-none outline-none py-2 w-full" />
+                          </div>
+                          
+                          <div className="absolute left-6 top-1/2 -translate-y-1/2 w-[calc(100%-48px)] h-[1px] bg-gray-200"></div>
+                          <div className="absolute left-1/2 top-1/2 -translate-y-1/2 -translate-x-1/2 bg-white border border-gray-200 w-10 h-10 rounded-full flex items-center justify-center text-xl shadow-sm text-slate-400">↕</div>
+
+                          <div className="flex flex-col gap-2 mt-6">
+                            <label className="text-xs font-bold text-slate-400 uppercase">大約等於日幣 (JPY)</label>
+                            <div className="text-4xl font-mono font-black text-blue-600 py-2">
+                              ¥ {twdInput ? Math.floor(twdInput * exchangeRate).toLocaleString() : 0}
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-6 font-medium">參考匯率：1 TWD ≈ {exchangeRate} JPY</p>
+                      </div>
+                    )}
+
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<OsakaTravelApp />);
+  </script>
+</body>
+</html>
